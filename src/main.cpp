@@ -15,10 +15,11 @@ const int udpPort = 8888;
 struct ControlData
 {
   int throttle;
-  int steering;
+  int roll;
+  int armed;
 };
 
-ControlData controlData = {0, 0};
+ControlData controlData = {0, 0, 0};
 
 HardwareSerial crsfSerialIn(1); // RX: GPIO5
 AlfredoCRSF crsfIn;
@@ -77,39 +78,63 @@ void loop()
     lastUdpTime = millis();
   }
 
-  // Перевірка, чи Lilka активна
   lilkaActive = (millis() - lastUdpTime < UDP_TIMEOUT);
 
-  // Реакція на зміну стану Lilka
   if (lilkaActive != prevLilkaState)
   {
     if (lilkaActive)
-    {
       Serial.println("✅ Lilka connected!");
-    }
     else
-    {
-      Serial.println("⚠️ Lilka disconnected, fallback to TX12");
-    }
+      Serial.println("⚠️ Lilka disconnected, fallback");
     prevLilkaState = lilkaActive;
   }
 
-  // CRSF
+  static crsf_channels_t lastOutChannels;
+
+  crsf_channels_t baseChannels;
+
   if (crsfIn.isLinkUp())
   {
+    // Якщо CRSF-вхід активний, беремо канали з нього
     const crsf_channels_t *inChannels = crsfIn.getChannelsPacked();
-    crsf_channels_t outChannels = *inChannels;
-
-    if (lilkaActive && controlData.throttle >= TX12_MIN && controlData.throttle <= TX12_MAX)
-    {
-      outChannels.ch2 = convertCh(controlData.throttle);
-    }
-
-    crsfOut.writePacket(CRSF_SYNC_BYTE, CRSF_FRAMETYPE_RC_CHANNELS_PACKED, &outChannels, sizeof(outChannels));
+    baseChannels = *inChannels;
   }
   else
   {
-    Serial.println("❌ CRSF Link lost...");
-    delay(500);
+    // Якщо немає CRSF-входу, беремо останні відомі або нейтральні
+    if (lastOutChannels.ch0 == 0 && lastOutChannels.ch2 == 0 && lastOutChannels.ch4 == 0)
+    {
+      baseChannels.ch0 = 1500;
+      baseChannels.ch1 = 400;
+      baseChannels.ch2 = 400;
+      baseChannels.ch3 = 400;
+      baseChannels.ch4 = 1000; // disarm
+      baseChannels.ch5 = 1000;
+      baseChannels.ch6 = 1000;
+      baseChannels.ch7 = 1000;
+    }
+    else
+    {
+      baseChannels = lastOutChannels;
+    }
   }
+
+  // Якщо Lilka активна, оновлюємо певні канали з UDP даних
+  if (lilkaActive)
+  {
+    if (controlData.roll >= TX12_MIN && controlData.roll <= TX12_MAX)
+      baseChannels.ch0 = convertCh(controlData.roll);
+
+    if (controlData.throttle >= TX12_MIN && controlData.throttle <= TX12_MAX)
+      baseChannels.ch2 = convertCh(controlData.throttle);
+
+    if (controlData.armed >= TX12_MIN && controlData.armed <= TX12_MAX)
+      baseChannels.ch4 = convertCh(controlData.armed);
+  }
+
+  // Запам'ятовуємо канал для наступної ітерації
+  lastOutChannels = baseChannels;
+
+  // Відправляємо CRSF пакет завжди
+  crsfOut.writePacket(CRSF_SYNC_BYTE, CRSF_FRAMETYPE_RC_CHANNELS_PACKED, &baseChannels, sizeof(baseChannels));
 }
