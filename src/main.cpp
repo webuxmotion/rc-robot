@@ -14,28 +14,39 @@ WiFiUDP udp;
 struct ControlData
 {
   int throttle;
+  int roll;
+  int armed; // analog value для армінгу
 };
 
-ControlData controlData = {340}; // Початковий газ
+ControlData controlData = {
+    340,    // throttle
+    1500,   // roll (центр)
+    1100    // armed, початково роззброєно (disarm)
+};
 
 // Межі
 const int minThrottle = 340;
 const int maxThrottle = 1811;
-const int step = 2;
+
+const int minRoll = 1000;
+const int maxRoll = 2000;
+const int centerRoll = 1500;
+
+const int throttleStep = 2;
+const int rollStep = 10;
+const int rollReturnStep = 15;
+
+const int minArmedValue = 1100; // disarm (мінімум для тумблера TX12)
+const int maxArmedValue = 1900; // arm (максимум для тумблера TX12)
+
+bool isArmed = false; // стан армінгу
 
 void setup()
 {
   lilka::begin();
   Serial.begin(9600);
 
-  // Підключення до Wi-Fi
   WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
   Serial.println("\nConnected!");
 }
 
@@ -43,30 +54,71 @@ void loop()
 {
   lilka::State state = lilka::controller.getState();
 
+  // Перемикач arming (toggle)
+  if (state.start.justPressed)
+  {
+    isArmed = !isArmed;
+    controlData.armed = isArmed ? maxArmedValue : minArmedValue;
+  }
+
   // Плавна зміна throttle
   if (state.up.pressed)
-  {
-    controlData.throttle += step;
-  }
+    controlData.throttle += throttleStep;
+
   if (state.down.pressed)
+    controlData.throttle -= throttleStep;
+
+  // Зміна roll (a = вправо, d = вліво)
+  if (state.d.pressed)
   {
-    controlData.throttle -= step;
+    controlData.roll -= rollStep;
+  }
+  else if (state.a.pressed)
+  {
+    controlData.roll += rollStep;
+  }
+  else
+  {
+    // Автоцентр roll
+    if (abs(controlData.roll - centerRoll) <= rollReturnStep)
+      controlData.roll = centerRoll;
+    else if (controlData.roll > centerRoll)
+      controlData.roll -= rollReturnStep;
+    else if (controlData.roll < centerRoll)
+      controlData.roll += rollReturnStep;
   }
 
+  // Обмеження
   controlData.throttle = constrain(controlData.throttle, minThrottle, maxThrottle);
+  controlData.roll = constrain(controlData.roll, minRoll, maxRoll);
+  controlData.armed = constrain(controlData.armed, minArmedValue, maxArmedValue);
 
-  // Вивід в монітор порту
+  // Вивід у Serial
   Serial.print("Throttle: ");
-  Serial.println(controlData.throttle);
+  Serial.print(controlData.throttle);
+  Serial.print(" | Roll: ");
+  Serial.print(controlData.roll);
+  Serial.print(" | Armed: ");
+  Serial.println(controlData.armed);
 
-  // Відображення на Lilka дисплеї
-  lilka::display.fillScreen(lilka::colors::Black); // Заповнити екран червоним кольором
-  lilka::display.setCursor(20, 100);
-  lilka::display.setTextColor(lilka::colors::White); // Зелений текст
-  lilka::display.setTextSize(2);
+  // Відображення на дисплеї
+  lilka::display.fillScreen(lilka::colors::Black);
+  lilka::display.setTextColor(lilka::colors::White);
+  lilka::display.setTextSize(1);
+
+  lilka::display.setCursor(20, 80);
+  lilka::display.print("Thr: ");
   lilka::display.print(controlData.throttle);
 
-  // Надсилання даних на C3-Mini
+  lilka::display.setCursor(20, 120);
+  lilka::display.print("Roll: ");
+  lilka::display.print(controlData.roll);
+
+  lilka::display.setCursor(20, 160);
+  lilka::display.print("Armed: ");
+  lilka::display.print(controlData.armed);
+
+  // Надсилання даних
   udp.beginPacket(c3MiniIP, udpPort);
   udp.write((uint8_t *)&controlData, sizeof(controlData));
   udp.endPacket();
