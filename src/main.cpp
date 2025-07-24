@@ -1,51 +1,69 @@
-#include <WiFi.h>
-#include <WebServer.h>
 #include <lilka.h>
+#include <WiFi.h>
+#include <WiFiUdp.h>
 
-const char* ssid = "SEVENMONE-Robotics";
+// Налаштування Wi-Fi
+const char* ssid = "RCController";
 const char* password = "12345678";
+const IPAddress receiverIP(192, 168, 4, 1);  // IP адреса C3-mini
+const int udpPort = 8888;
 
-WebServer server(80);
-String ipString;
+WiFiUDP udp;
 
-int y = 100; // початкова позиція тексту
+// Структура даних для керування
+struct ControlData {
+    int throttle;  // Газ
+    int steering;  // Кермо
+};
 
-void handleRoot() {
-  String html = "<!DOCTYPE html><html><head><title>ESP32 AP</title></head><body>";
-  html += "<h1>Welcome to Lilka Wi-Fi AP</h1>";
-  html += "<p>Your IP: " + ipString + "</p>";
-  html += "</body></html>";
-  server.send(200, "text/html", html);
-}
-
-IPAddress local_IP(192, 158, 88, 1);     // your desired IP
-IPAddress gateway(192, 158, 88, 1);       // usually same as local_IP
-IPAddress subnet(255, 255, 255, 0);      // typical subnet mask
+ControlData controlData = {0, 0};  // Початкові значення
 
 void setup() {
-  lilka::begin();
+    lilka::begin();
+    Serial.begin(9600);  // За замовчуванням USB-порт
 
-  WiFi.softAPConfig(local_IP, gateway, subnet);
-
-  WiFi.softAP(ssid, password);
-  IPAddress IP = WiFi.softAPIP();
-  ipString = IP.toString();
-
-  server.on("/", handleRoot);
-  server.begin();
+    WiFi.begin(ssid, password);
+    Serial.print("Connecting to WiFi");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\n✅ Connected to WiFi!");
+    udp.begin(udpPort);
 }
 
 void loop() {
-  server.handleClient(); // обробка запитів
+    lilka::State state = lilka::controller.getState();
+    const int step = 10;
 
-  lilka::Canvas canvas;
-  canvas.fillScreen(lilka::colors::Black);
-  canvas.setCursor(3, y);
-  canvas.setTextColor(lilka::colors::White);
-  canvas.setTextSize(1);
-  canvas.print(ipString);
-  lilka::display.drawCanvas(&canvas);
+    // Керування газом (throttle)
+    if (state.up.justPressed) {
+        controlData.throttle += step;
+    } else if (state.down.justPressed) {
+        controlData.throttle -= step;
+    }
 
-  y++;
-  if (y > 200) y = 100;
+    // Керування поворотом (steering)
+    if (state.right.justPressed) {
+        controlData.steering += step;
+    } else if (state.left.justPressed) {
+        controlData.steering -= step;
+    }
+
+    // Обмеження значень в межах [0, 1000]
+    controlData.throttle = constrain(controlData.throttle, 0, 1000);
+    controlData.steering = constrain(controlData.steering, 0, 1000);
+
+    // Вивід у консоль
+    Serial.print("Throttle: ");
+    Serial.print(controlData.throttle);
+    Serial.print(", Steering: ");
+    Serial.println(controlData.steering);
+
+    // Надсилання по UDP
+    udp.beginPacket(receiverIP, udpPort);
+    udp.write((uint8_t*)&controlData, sizeof(controlData));
+    udp.endPacket();
+
+    delay(20);  // щоб не перевантажувати UDP-передачу
 }
