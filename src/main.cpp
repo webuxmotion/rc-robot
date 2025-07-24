@@ -1,63 +1,42 @@
 #include <lilka.h>
-#include <WiFi.h>
-#include <WiFiUdp.h>
-
-const char* ssid = "C3-Mini-AP";
-const char* password = "12345678";
-
-const char* c3MiniIP = "192.168.4.1";  // IP точки доступу C3-Mini
-const int udpPort = 8888;
-
-WiFiUDP udp;
-
-struct ControlData {
-  int throttle;
-  int steering;
-};
-
-ControlData controlData = {0, 0};
 
 void setup() {
   lilka::begin();
   Serial.begin(9600);
-
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nConnected!");
 }
 
 void loop() {
   lilka::State state = lilka::controller.getState();
-  const int step = 10;
 
-  if (state.up.justPressed) {
-    controlData.throttle += step;
-  } 
-  if (state.down.justPressed) {
-    controlData.throttle -= step;
-  }
-  if (state.right.justPressed) {
-    controlData.steering += step;
-  }
-  if (state.left.justPressed) {
-    controlData.steering -= step;
-  }
+  if (state.up.justPressed)     Serial.println("UP pressed");
+  if (state.up.justReleased)    Serial.println("UP released");
 
-  controlData.throttle = constrain(controlData.throttle, 0, 1000);
-  controlData.steering = constrain(controlData.steering, 0, 1000);
+  if (state.down.justPressed)   Serial.println("DOWN pressed");
+  if (state.down.justReleased)  Serial.println("DOWN released");
 
-  Serial.print("Throttle: ");
-  Serial.print(controlData.throttle);
-  Serial.print(", Steering: ");
-  Serial.println(controlData.steering);
+  if (state.left.justPressed)   Serial.println("LEFT pressed");
+  if (state.left.justReleased)  Serial.println("LEFT released");
 
-  udp.beginPacket(c3MiniIP, udpPort);
-  udp.write((uint8_t*)&controlData, sizeof(controlData));
-  udp.endPacket();
+  if (state.right.justPressed)  Serial.println("RIGHT pressed");
+  if (state.right.justReleased) Serial.println("RIGHT released");
 
-  delay(20);
+  if (state.a.justPressed)      Serial.println("A pressed");
+  if (state.a.justReleased)     Serial.println("A released");
+
+  if (state.b.justPressed)      Serial.println("B pressed");
+  if (state.b.justReleased)     Serial.println("B released");
+
+  if (state.c.justPressed)      Serial.println("C pressed");
+  if (state.c.justReleased)     Serial.println("C released");
+
+  if (state.d.justPressed)      Serial.println("D pressed");
+  if (state.d.justReleased)     Serial.println("D released");
+
+  if (state.select.justPressed) Serial.println("SELECT pressed");
+  if (state.select.justReleased)Serial.println("SELECT released");
+
+  if (state.start.justPressed)  Serial.println("START pressed");
+  if (state.start.justReleased) Serial.println("START released");
+
+  delay(10);
 }
