@@ -15,11 +15,11 @@ struct ControlData {
   int throttle;
 };
 
-ControlData controlData = {1000};  // Початковий газ
+ControlData controlData = {190};  // Початковий газ
 
 // Межі
-const int minThrottle = 1000;
-const int maxThrottle = 2000;
+const int minThrottle = 190;
+const int maxThrottle = 1811;
 const int step = 1;
 
 void setup() {
