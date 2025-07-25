@@ -20,24 +20,24 @@ struct ControlData
 
 ControlData controlData = {
     340,    // throttle
-    1500,   // roll (центр)
-    1100    // armed, початково роззброєно (disarm)
+    1000,   // roll (центр)
+    340    // armed, початково роззброєно (disarm)
 };
 
 // Межі
 const int minThrottle = 340;
 const int maxThrottle = 1811;
 
-const int minRoll = 1000;
+const int minRoll = 190;
 const int maxRoll = 2000;
-const int centerRoll = 1500;
+const int centerRoll = 1000;
 
 const int throttleStep = 2;
 const int rollStep = 10;
 const int rollReturnStep = 15;
 
-const int minArmedValue = 1100; // disarm (мінімум для тумблера TX12)
-const int maxArmedValue = 1900; // arm (максимум для тумблера TX12)
+const int minArmedValue = 340; // disarm (мінімум для тумблера TX12)
+const int maxArmedValue = 2000; // arm (максимум для тумблера TX12)
 
 bool isArmed = false; // стан армінгу
 
