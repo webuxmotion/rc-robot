@@ -79,41 +79,29 @@ void loop()
   }
 
   lilkaActive = (millis() - lastUdpTime < UDP_TIMEOUT);
-
-  if (lilkaActive != prevLilkaState)
-  {
-    if (lilkaActive)
-      Serial.println("✅ Lilka connected!");
-    else
-      Serial.println("⚠️ Lilka disconnected, fallback");
-    prevLilkaState = lilkaActive;
-  }
+  bool tx12Active = crsfIn.isLinkUp();
 
   static crsf_channels_t lastOutChannels;
-
   crsf_channels_t baseChannels;
 
-  if (crsfIn.isLinkUp())
+  if (tx12Active)
   {
-    // Якщо CRSF-вхід активний, беремо канали з нього
     const crsf_channels_t *inChannels = crsfIn.getChannelsPacked();
     baseChannels = *inChannels;
   }
   else
   {
-    // Якщо немає CRSF-входу, беремо останні відомі або нейтральні
     if (lastOutChannels.ch0 == 0 && lastOutChannels.ch2 == 0 && lastOutChannels.ch4 == 0)
     {
       Serial.println("RESET CHANNELS");
-
-      baseChannels.ch0 = 1500;
-      baseChannels.ch1 = 400;
-      baseChannels.ch2 = 400;
-      baseChannels.ch3 = 400;
-      baseChannels.ch4 = 1000; // disarm
-      baseChannels.ch5 = 1000;
-      baseChannels.ch6 = 1000;
-      baseChannels.ch7 = 1000;
+      baseChannels.ch0 = 1000;
+      baseChannels.ch1 = 390;
+      baseChannels.ch2 = 390;
+      baseChannels.ch3 = 390;
+      baseChannels.ch4 = 390;
+      baseChannels.ch5 = 390;
+      baseChannels.ch6 = 390;
+      baseChannels.ch7 = 390;
     }
     else
     {
@@ -121,7 +109,16 @@ void loop()
     }
   }
 
-  // Якщо Lilka активна, оновлюємо певні канали з UDP даних
+  if (lilkaActive != prevLilkaState)
+  {
+    if (lilkaActive)
+      Serial.println("✅ Lilka connected!");
+    else
+      Serial.println("⚠️ Lilka disconnected");
+
+    prevLilkaState = lilkaActive;
+  }
+
   if (lilkaActive)
   {
     if (controlData.roll >= TX12_MIN && controlData.roll <= TX12_MAX)
@@ -134,9 +131,13 @@ void loop()
       baseChannels.ch4 = controlData.armed;
   }
 
-  // Запам'ятовуємо канал для наступної ітерації
+  // Якщо немає Lilka і немає TX12 — throttle скидаємо до мінімуму
+  if (!lilkaActive && !tx12Active)
+  {
+    baseChannels.ch2 = CRSF_CHANNEL_VALUE_MIN;
+  }
+
   lastOutChannels = baseChannels;
 
-  // Відправляємо CRSF пакет завжди
   crsfOut.writePacket(CRSF_SYNC_BYTE, CRSF_FRAMETYPE_RC_CHANNELS_PACKED, &baseChannels, sizeof(baseChannels));
 }
