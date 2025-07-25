@@ -104,6 +104,8 @@ void loop()
     // Якщо немає CRSF-входу, беремо останні відомі або нейтральні
     if (lastOutChannels.ch0 == 0 && lastOutChannels.ch2 == 0 && lastOutChannels.ch4 == 0)
     {
+      Serial.println("RESET CHANNELS");
+
       baseChannels.ch0 = 1500;
       baseChannels.ch1 = 400;
       baseChannels.ch2 = 400;
@@ -123,13 +125,13 @@ void loop()
   if (lilkaActive)
   {
     if (controlData.roll >= TX12_MIN && controlData.roll <= TX12_MAX)
-      baseChannels.ch0 = convertCh(controlData.roll);
+      baseChannels.ch0 = controlData.roll;
 
     if (controlData.throttle >= TX12_MIN && controlData.throttle <= TX12_MAX)
       baseChannels.ch2 = convertCh(controlData.throttle);
 
     if (controlData.armed >= TX12_MIN && controlData.armed <= TX12_MAX)
-      baseChannels.ch4 = convertCh(controlData.armed);
+      baseChannels.ch4 = controlData.armed;
   }
 
   // Запам'ятовуємо канал для наступної ітерації
