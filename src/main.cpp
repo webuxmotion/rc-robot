@@ -32,12 +32,12 @@ const int minRoll = 190;
 const int maxRoll = 2000;
 const int centerRoll = 1000;
 
-const int throttleStep = 2;
-const int rollStep = 10;
-const int rollReturnStep = 15;
+const int throttleStep = 3;
+const int rollStep = 30;
+const int rollReturnStep = 30;
 
 const int minArmedValue = 340; // disarm (мінімум для тумблера TX12)
-const int maxArmedValue = 2000; // arm (максимум для тумблера TX12)
+const int maxArmedValue = 1800; // arm (максимум для тумблера TX12)
 
 bool isArmed = false; // стан армінгу
 
